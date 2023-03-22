@@ -7,12 +7,14 @@ import com.funda.springboot.fundament.component.ComponentDependency;
 import com.funda.springboot.fundament.entity.User;
 import com.funda.springboot.fundament.pojo.UserPojo;
 import com.funda.springboot.fundament.repository.UserRepository;
+import com.funda.springboot.fundament.sevice.UserService;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -30,12 +32,13 @@ public class FundamentApplication implements CommandLineRunner {
 	private MyBeanWithProperties myBeanWithProperties;
     private UserPojo userPojo;
 	private UserRepository userRepository;
+	private UserService userService;
 
 
 
 	public FundamentApplication(@Qualifier("componentImplement") ComponentDependency componentDependency, MyBean myBean,
 								MyBeanWithDependency myBeanWithDependency, MyBeanWithProperties myBeanWithProperties,
-								UserPojo userPojo, UserRepository userRepository){
+								UserPojo userPojo, UserRepository userRepository,UserService userService){
 
 		this.componentDependency = componentDependency;
 		//inyectamos nuestra dependencia
@@ -44,6 +47,7 @@ public class FundamentApplication implements CommandLineRunner {
 		this.myBeanWithProperties = myBeanWithProperties;
 		this.userPojo = userPojo;
 		this.userRepository = userRepository;
+		this.userService = userService;
 	}
 	//inyeccion de dependencias final
 	public static void main(String[] args) {
@@ -55,8 +59,57 @@ public class FundamentApplication implements CommandLineRunner {
 	public void run(String... args) throws Exception {
 		//ejemplosAnteriores();
 		saveUserInDataBase();
+		getInformationJpqlFromUser();
+		saveWithErrorTransactional();
 
 	}
+	//metodo
+	private void saveWithErrorTransactional(){
+		User test1 = new User("TestTransactional1","TestTransactional1@domain.com", LocalDate.now());
+		User test2 = new User("TestTransactional2","TestTransactional2@domain.com", LocalDate.now());
+		User test3 = new User("TestTransactional3","TestTransactional3@domain.com", LocalDate.now());
+		User test4 = new User("TestTransactional4","TestTransactional4@domain.com", LocalDate.now());
+		List<User> users = Arrays.asList(test1,test2,test3,test4);
+		userService.saveTransactional(users);
+		userService.getAllUsers()
+				.stream()
+				.forEach(user ->
+						LOGGER.info("Este es el usuario dentro del metodo transaccional "+user));
+
+	}
+	//metodo pa jpaQuery
+	private void  getInformationJpqlFromUser(){
+		   /* LOGGER.info("Usuario con el metodo findByUserEmail"+
+			userRepository.findByUserEmail("julie@domain.com")
+					.orElseThrow(()-> new RuntimeException("No se encontro el usuario")));
+			userRepository.findAndSort("user", Sort.by("id").descending())
+					.stream()
+					.forEach(user -> LOGGER.info("Usuario con metodo Sort"+user));
+
+			userRepository.findByName("John")
+					.stream()
+					.forEach(user -> LOGGER.info("Usuario con query method" + user));
+			LOGGER.info("Usuario con Query method findByEmailAndName" + userRepository.findByEmailAndName("daniela@domain.com","Daniela")
+					.orElseThrow(()-> new RuntimeException("Usuario no encontrado")));
+			userRepository.findByNameLike("%u%")
+					.stream()
+					.forEach(user -> LOGGER.info("Usuario findByNameLike " + user));
+		    userRepository.findByNameOrEmail(null,"user10@domain.com")
+				.stream()
+				.forEach(user -> LOGGER.info("Usuario findByNameOrEmail " + user));*/
+		userRepository.findByBirthDateBetween(LocalDate.of(2021,3,1),LocalDate.of(2021,4,2))
+				.stream()
+				.forEach(user -> LOGGER.info("Usuario con intervalo de fechas: " + user));
+
+		userRepository.findByNameContainingOrderByIdDesc("user")
+				.stream()
+				.forEach(user -> LOGGER.info("Usuario encontrado con like y ordenado " + user));
+		LOGGER.info("El Usuario a partir del named parameter es: "+userRepository.getAllByBirthDateAndEmail(LocalDate.of(2021,7,20),
+						"daniela@domain.com")
+				.orElseThrow(()->
+						new RuntimeException("No se encontro el usuario a partir de named Parameter")));
+	}
+
 	//metodo para persistir informacion
 	private void saveUserInDataBase(){
 		User user1 = new User("John", "jonn@domain.com", LocalDate.of(2021,3,20));
